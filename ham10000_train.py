@@ -20,8 +20,6 @@ import numpy as np
 import pandas as pd
 from glob import glob
 
-import decryption
-
 from sklearn.utils import validation
 from torch.utils import data
 import torch
@@ -321,10 +319,7 @@ Main function
 
 if __name__ == '__main__':
     images_path = "./ham10000_images.csv"
-    metadata_path = "ham10000_metadata.csv"
-    # decrypt metadata
-    decryption.decrypt(metadata_path)
-    #metadata_path = "./sensitive_metadata.csv"
+    metadata_path = "./ham10000_metadata.csv"
     training_set, training_generator, validation_set, validation_generator, validation_df, composed = preprocess_data(images_path, metadata_path)
     resnet50_classifier, optimizer, criterion = create_model()
     train(training_set, training_generator, validation_set, validation_generator, resnet50_classifier, optimizer, criterion)
