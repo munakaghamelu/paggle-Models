@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Sources:
 https://www.kaggle.com/kmader/dermatology-mnist-loading-and-processing
