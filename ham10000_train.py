@@ -15,19 +15,14 @@ Original file is located at
     https://colab.research.google.com/drive/1qR0p6Ox2Vx1MO4IVU_soIOJwiBxahnmw
 """
 
-import platform
-
-# import sys; print("Python", sys.version)
-# import numpy; print("NumPy", numpy.__version__)
-# import pandas; print("Pandas", pandas.__version__)
-
 import os
 import urllib.request
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from glob import glob
-
+from io import BytesIO
+import pycurl
 from sklearn.utils import validation
 from torch.utils import data
 import torch
@@ -37,9 +32,10 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 from collections import defaultdict
 import joblib
+from django.core.files import File
+from django.core.files.base import ContentFile
 
 """
-
 Dataset class
 input:
 data.Dataset
@@ -79,10 +75,22 @@ class Dataset(data.Dataset):
 
 def download_image(link, file_name):
   if os.path.exists(file_name) == False:
-      urllib.request.urlretrieve(link, os.path.basename(file_name))
-      print(f"Saved {os.path.basename(file_name)}!")
+    # Fetch image using pycurl
+    buffer = BytesIO()
+    c = pycurl.Curl()
+    try:
+      c.setopt(c.URL, link)
+      c.setopt(c.WRITEDATA, buffer)
+      c.perform()
+      contents = buffer.getvalue()
+      file = ContentFile(contents)
+    finally:
+      c.close()
+    with open(file_name, 'wb') as f:
+      f.write(file)
+      print(f"Saved {file_name}!")
   else:
-      print(f"Image already exists! at {os.path.basename(file_name)}")
+      print(f"Image already exists! at {file_name}")
 
 """
 
