@@ -64,8 +64,13 @@ class Dataset(data.Dataset):
     def __getitem__(self, index):
         # Generates one sample of data
         # Load data and get label
-        X = Image.open(self.df['path'][index])
-        y = torch.tensor(int(self.df['cell_type_idx'][index]))
+        X = 0
+        y = 0
+        try:
+          X = Image.open(self.df['path'][index])
+          y = torch.tensor(int(self.df['cell_type_idx'][index]))
+        except:
+          print("Image hasn't been downloaded properly.")
 
         if self.transform:
             X = self.transform(X)
@@ -105,7 +110,7 @@ def preprocess_data(images_path, metadata_path):
   imageid_path_dict = {}
   for idx, row in df_images.iterrows():
       image_id = row['image_id']
-      fname = f"./{row['image_id']}.{row['type']}"
+      fname = f"{os.path.basename(row['image_id'])}.{row['type']}"
       download_image(row['link'],fname)
       imageid_path_dict[image_id] = fname
 
@@ -125,11 +130,11 @@ def preprocess_data(images_path, metadata_path):
   
   # This is where we load the metadata file
   tile_df = pd.read_csv(metadata_path)
-  tile_df['path'] = os.path.basename(tile_df['image_id'].map(imageid_path_dict.get))
+  tile_df['path'] = tile_df['image_id'].map(imageid_path_dict.get)
   tile_df['cell_type'] = tile_df['dx'].map(lesion_type_dict.get) 
   tile_df['cell_type_idx'] = pd.Categorical(tile_df['cell_type']).codes
   tile_df[['cell_type_idx', 'cell_type']].sort_values('cell_type_idx').drop_duplicates()
-
+ 
   # Split data
   train_df, test_df = train_test_split(tile_df, test_size=0.1)
   validation_df, test_df = train_test_split(test_df, test_size=0.5)
@@ -296,12 +301,13 @@ def test(validation_df, validation_set, composed):
 
   for i in test_generator:
       data_sample, y = validation_set.__getitem__(i)
-      data_gpu = data_sample.unsqueeze(0)
-      output = model(data_gpu)
-      result = torch.argmax(output)
-      predicted_label = result.item()
-      true_label = y.item()
-      confusion_matrix[predicted_label][true_label] += 1
+      if data_sample != 0:
+        data_gpu = data_sample.unsqueeze(0)
+        output = model(data_gpu)
+        result = torch.argmax(output)
+        predicted_label = result.item()
+        true_label = y.item()
+        confusion_matrix[predicted_label][true_label] += 1
   
   # print("This is what the Confusion Matrix output looks like:")
   # print(confusion_matrix)
