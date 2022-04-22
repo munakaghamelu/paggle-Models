@@ -74,8 +74,8 @@ class Dataset(data.Dataset):
 
 def download_image(link, file_name):
   if os.path.exists(file_name) == False:
-      urllib.request.urlretrieve(link, file_name)
-      print(f"Saved {file_name}!")
+      urllib.request.urlretrieve(link, os.path.basename(file_name))
+      print(f"Saved {os.path.basename(file_name)}!")
   else:
       print(f"Image already exists! at {os.path.basename(file_name)}")
 
@@ -125,7 +125,7 @@ def preprocess_data(images_path, metadata_path):
   
   # This is where we load the metadata file
   tile_df = pd.read_csv(metadata_path)
-  tile_df['path'] = tile_df['image_id'].map(imageid_path_dict.get)
+  tile_df['path'] = os.path.basename(tile_df['image_id'].map(imageid_path_dict.get))
   tile_df['cell_type'] = tile_df['dx'].map(lesion_type_dict.get) 
   tile_df['cell_type_idx'] = pd.Categorical(tile_df['cell_type']).codes
   tile_df[['cell_type_idx', 'cell_type']].sort_values('cell_type_idx').drop_duplicates()
