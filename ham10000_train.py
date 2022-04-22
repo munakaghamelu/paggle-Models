@@ -76,24 +76,15 @@ class Dataset(data.Dataset):
 def download_image(link, file_name):
   if os.path.exists(file_name) == False:
     # Fetch image using pycurl
-    buffer = BytesIO()
     c = pycurl.Curl()
-    try:
-      c.setopt(c.URL, link)
-      c.setopt(c.WRITEDATA, buffer)
-      c.perform()
-      contents = buffer.getvalue()
-      file = ContentFile(contents)
-    finally:
-      c.close()
+    c.setopt(c.URL, link)
     with open(file_name, 'wb') as f:
-      f.write(file)
-      print(f"Saved {file_name}!")
+      c.setopt(c.WRITEFUNCTION, f.write)
+      c.perform()
   else:
       print(f"Image already exists! at {file_name}")
 
 """
-
 Data preprocessing
 
 inputs:
@@ -238,9 +229,7 @@ def train(training_set, training_generator, validation_set, validation_generator
 
 
 """
-
 Test + Output Helper functions
-
 """
 
 np.set_printoptions(suppress=True)
