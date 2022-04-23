@@ -34,6 +34,7 @@ from collections import defaultdict
 import joblib
 from django.core.files import File
 from django.core.files.base import ContentFile
+import pathlib
 
 """
 Dataset class
@@ -60,13 +61,8 @@ class Dataset(data.Dataset):
     def __getitem__(self, index):
         # Generates one sample of data
         # Load data and get label
-        X = 0
-        y = 0
-        try:
-          X = Image.open(self.df['path'][index])
-          y = torch.tensor(int(self.df['cell_type_idx'][index]))
-        except:
-          print("Image hasn't been downloaded properly.")
+        X = Image.open(self.df['path'][index])
+        y = torch.tensor(int(self.df['cell_type_idx'][index]))
 
         if self.transform:
             X = self.transform(X)
@@ -84,8 +80,7 @@ def download_image(link, file_name):
   else:
       print(f"Image already exists! at {file_name}")
 
-"""
-Data preprocessing
+"""Data preprocessing
 
 inputs:
 - path to image csv
@@ -109,12 +104,13 @@ def preprocess_data(images_path, metadata_path):
   imageid_path_dict = {}
   for idx, row in df_images.iterrows():
       image_id = row['image_id']
-      fname = f"{os.path.basename(row['image_id'])}.{row['type']}"
+      cwd_path = pathlib.Path().resolve()
+      fname = f"{cwd_path}{row['image_id']}.{row['type']}"
       download_image(row['link'],fname)
       imageid_path_dict[image_id] = fname
 
-  print("Finished downloading images.")
-  print(imageid_path_dict)
+  # print("Finished downloading images.")
+  # print(imageid_path_dict)
 
   # The categories
   lesion_type_dict = {
@@ -183,7 +179,7 @@ Train function
 
 """
 
-def train(training_set, training_generator, validation_set, validation_generator, resnet50_classifier, optimizer, criterion):
+def train(training_generator, validation_generator, resnet50_classifier, optimizer, criterion):
   # Actual training loop
   max_epochs = 20
   trainings_error = []
@@ -193,6 +189,7 @@ def train(training_set, training_generator, validation_set, validation_generator
       count_train = 0
       trainings_error_tmp = []
       resnet50_classifier.train()
+  print("Beginning Training.")
   for data_sample, y in training_generator:
       data_gpu = data_sample
       y_gpu = y
@@ -208,6 +205,7 @@ def train(training_set, training_generator, validation_set, validation_generator
           trainings_error.append(mean_trainings_error)
           print('trainings error:', mean_trainings_error)
           break
+  print("Beginning Validation.")
   with torch.set_grad_enabled(False):
         validation_error_tmp = []
         count_val = 0
@@ -225,7 +223,8 @@ def train(training_set, training_generator, validation_set, validation_generator
                 validation_error.append(mean_val_error)
                 print('validation error:', mean_val_error)
                 break
-  joblib.dump(resnet50_classifier, 'ham10000_resnet50_classifier.joblib')
+  cwd_path = pathlib.Path().resolve()
+  joblib.dump(resnet50_classifier, f"{cwd_path}ham10000_resnet50_classifier.joblib")
 
 
 """
@@ -283,9 +282,10 @@ def get_metrics(c, confusion_matrix):
 
   return tp, tn, fp, fn
 
-def test(validation_df, validation_set, composed):
+def test(validation_generator):
   # Test the classification's ability
-  model = joblib.load('ham10000_resnet50_classifier.joblib')
+  cwd_path = pathlib.Path().resolve()
+  model = joblib.load(f"{cwd_path}ham10000_resnet50_classifier.joblib")
   model.eval()
   test_set = Dataset(validation_df, transform=composed)
   test_generator = data.SequentialSampler(validation_set)
@@ -297,14 +297,13 @@ def test(validation_df, validation_set, composed):
   confusion_matrix = np.zeros(shape=(size, size), dtype=int)
 
   for i in test_generator:
-      data_sample, y = validation_set.__getitem__(i)
-      if data_sample != 0:
-        data_gpu = data_sample.unsqueeze(0)
-        output = model(data_gpu)
-        result = torch.argmax(output)
-        predicted_label = result.item()
-        true_label = y.item()
-        confusion_matrix[predicted_label][true_label] += 1
+      data_sample, y = test_set.__getitem__(i)
+      data_gpu = data_sample.unsqueeze(0)
+      output = model(data_gpu)
+      result = torch.argmax(output)
+      predicted_label = result.item()
+      true_label = y.item()
+      confusion_matrix[predicted_label][true_label] += 1
   
   # print("This is what the Confusion Matrix output looks like:")
   # print(confusion_matrix)
@@ -335,5 +334,5 @@ if __name__ == '__main__':
     metadata_path = "./ham10000_metadata.csv"
     training_set, training_generator, validation_set, validation_generator, validation_df, composed = preprocess_data(images_path, metadata_path)
     resnet50_classifier, optimizer, criterion = create_model()
-    train(training_set, training_generator, validation_set, validation_generator, resnet50_classifier, optimizer, criterion)
-    test(validation_df, validation_set, composed)
+    train(training_generator, validation_generator, resnet50_classifier, optimizer, criterion)
+    test(validation_generator)
